@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 mod event;
 mod event_log;
 mod persistence;
 mod services;
 
 fn main() -> eyre::Result<()> {
+    let persistence = Arc::new(persistence::InMemoryPersistence::new());
     let (event_writer, event_reader) = event_log::new_in_memory_shared()?;
 
     let svc_ctr = services::ServiceControl::new();
@@ -15,7 +18,7 @@ fn main() -> eyre::Result<()> {
         }
     })?;
 
-    for handle in vec![svc_ctr.spawn_loop(services::Tui::new(event_writer.clone()))] {
+    for handle in vec![svc_ctr.spawn_loop(services::Tui::new(persistence, event_writer.clone()))] {
         handle.join()?;
     }
     Ok(())

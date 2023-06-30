@@ -1,8 +1,11 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     Person(PersonEvent),
 }
-#[derive(Debug, Clone)]
+
+pub type PersonId = ulid::Ulid;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersonEvent {
-    PersonAdded { name: String },
+    PersonAdded { id: PersonId, name: String },
 }

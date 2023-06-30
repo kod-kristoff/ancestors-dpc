@@ -5,26 +5,41 @@ pub use self::error::TuiError;
 pub type TuiResult<T> = Result<T, TuiError>;
 
 use super::LoopService;
-use crate::{event, event_log};
+use crate::{
+    event::{self, PersonId},
+    event_log,
+    persistence::SharedPersistence,
+};
 
 #[derive(Debug)]
 pub struct AddPersonRequest {
     name: String,
 }
 pub struct Tui {
+    persistence: SharedPersistence,
     event_writer: event_log::SharedWriter,
 }
 
 impl Tui {
-    pub fn new(event_writer: event_log::SharedWriter) -> Self {
-        Self { event_writer }
+    pub fn new(persistence: SharedPersistence, event_writer: event_log::SharedWriter) -> Self {
+        Self {
+            persistence,
+            event_writer,
+        }
     }
 
-    fn add_person(&self, add_person_request: AddPersonRequest) -> TuiResult<String> {
+    fn add_person(&self, add_person_request: AddPersonRequest) -> TuiResult<PersonId> {
+        let new_id = PersonId::new();
         self.event_writer
-            .write(&[event::Event::Person(event::PersonEvent::PersonAdded {
-                name: add_person_request.name,
-            })])
+            .write(
+                &mut *self.persistence.get_connection().expect("a connection"),
+                &[event::Event::Person(event::PersonEvent::PersonAdded {
+                    id: new_id.clone(),
+                    name: add_person_request.name,
+                })],
+            )
+            .expect("write succeed");
+        Ok(new_id)
     }
 }
 
@@ -37,7 +52,7 @@ impl LoopService for Tui {
             "add" => {
                 let name = views::readline_with_prompt("name? ")?;
                 let new_id = self.add_person(AddPersonRequest { name })?;
-                println!("person with id '{}' added", id);
+                println!("person with id '{}' added", new_id);
             }
             cmd => todo!("handle unknown command '{}'", cmd),
         }
